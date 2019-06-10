@@ -88,21 +88,17 @@ class WebSqlStore extends Store {
   }
 
   @override
-  Future<String> getByKey(String key) {
-    final completer = new Completer<String>();
+  Future<String> getByKey(String key) async {
     final sql = 'SELECT value FROM $storeName WHERE id = ?';
 
-    _db.readTransaction((txn) async {
-      final resultSet = await txn.executeSql(sql, [key]);
-      if (resultSet.rows.isEmpty) {
-        completer.complete(null);
-      } else {
-        final row = resultSet.rows.item(0);
-        completer.complete(row['value']);
-      }
-    }, (error) => completer.completeError(error));
-
-    return completer.future;
+    final txn = await _db.readTransaction();
+    final resultSet = await txn.executeSql(sql, [key]);
+    if (resultSet.rows.isEmpty) {
+      return null;
+    } else {
+      final row = resultSet.rows.item(0);
+      return row['value'];
+    }
   }
 
   @override
