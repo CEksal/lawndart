@@ -40,17 +40,15 @@ class IndexedDbStore extends Store {
       throw new UnsupportedError('IndexedDB is not supported on this platform');
     }
 
-    if (_db != null) {
-      _db.close();
-    }
+    _db?.close();
 
-    var db = await window.indexedDB.open(dbName);
+    var db = await window.indexedDB!.open(dbName);
 
     //print("Newly opened db $dbName has version ${db.version} and stores ${db.objectStoreNames}");
-    if (!db.objectStoreNames.contains(storeName)) {
+    if (!db.objectStoreNames!.contains(storeName)) {
       db.close();
       //print('Attempting upgrading $storeName from ${db.version}');
-      db = await window.indexedDB.open(dbName, version: db.version + 1,
+      db = await window.indexedDB!.open(dbName, version: db.version! + 1,
           onUpgradeNeeded: (e) {
         //print('Upgrading db $dbName to ${db.version + 1}');
         idb.Database d = e.target.result;
@@ -62,7 +60,7 @@ class IndexedDbStore extends Store {
     return true;
   }
 
-  idb.Database get _db => _databases[dbName];
+  idb.Database? get _db => _databases[dbName];
 
   @override
   Future removeByKey(String key) {
@@ -76,9 +74,9 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future<String> getByKey(String key) {
-    return _runInTxn<String>(
-        (store) async => (await store.getObject(key) as String), 'readonly');
+  Future<String?> getByKey(String key) {
+    return _runInTxn<String?>(
+        (store) async => (await store.getObject(key) as String?), 'readonly');
   }
 
   @override
@@ -88,7 +86,7 @@ class IndexedDbStore extends Store {
 
   Future<T> _runInTxn<T>(Future<T> requestCommand(idb.ObjectStore store),
       [String txnMode = 'readwrite']) async {
-    var trans = _db.transaction(storeName, txnMode);
+    var trans = _db!.transaction(storeName, txnMode);
     var store = trans.objectStore(storeName);
     var result = await requestCommand(store);
     await trans.completed;
@@ -96,7 +94,7 @@ class IndexedDbStore extends Store {
   }
 
   Stream<String> _doGetAll(String onCursor(idb.CursorWithValue cursor)) async* {
-    var trans = _db.transaction(storeName, 'readonly');
+    var trans = _db!.transaction(storeName, 'readonly');
     var store = trans.objectStore(storeName);
     await for (var cursor in store.openCursor(autoAdvance: true)) {
       yield onCursor(cursor);
@@ -109,8 +107,8 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future batch(Map<String, String> objs) {
-    return _runInTxn((store) {
+  Future<void> batch(Map<String, String> objs) {
+    return _runInTxn((store) async {
       objs.forEach((k, v) {
         store.put(v, k);
       });
@@ -126,8 +124,8 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future<bool> removeByKeys(Iterable<String> keys) {
-    return _runInTxn((store) {
+  Future<void> removeByKeys(Iterable<String> keys) {
+    return _runInTxn((store) async {
       for (var key in keys) {
         store.delete(key);
       }
@@ -142,6 +140,6 @@ class IndexedDbStore extends Store {
 
   @override
   Stream<String> keys() {
-    return _doGetAll((idb.CursorWithValue cursor) => cursor.key);
+    return _doGetAll((idb.CursorWithValue cursor) => cursor.key as String);
   }
 }
