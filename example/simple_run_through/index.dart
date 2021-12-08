@@ -2,7 +2,6 @@ library index;
 
 import 'package:lawndart/lawndart.dart';
 import 'dart:html';
-import 'dart:web_sql';
 import 'dart:indexed_db';
 
 runThrough(Store store, String id) async {
@@ -22,12 +21,7 @@ runThrough(Store store, String id) async {
 }
 
 main() async {
-  if (SqlDatabase.supported) {
-    var store = await WebSqlStore.open('test', 'test');
-    runThrough(store, 'websql');
-  } else {
-    querySelector('#websql').text = 'WebSQL is not supported in your browser';
-  }
+  querySelector('#websql').text = 'WebSQL is not supported in your browser';
 
   if (IdbFactory.supported) {
     var store = await IndexedDbStore.open('test', 'test');

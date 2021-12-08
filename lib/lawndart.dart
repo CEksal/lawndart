@@ -44,14 +44,12 @@ library lawndart;
 
 import 'dart:html';
 import 'dart:indexed_db' as idb;
-import 'dart:web_sql';
 import 'dart:async';
 
 part 'src/indexeddb_store.dart';
 part 'src/_map_store.dart';
 part 'src/memory_store.dart';
 part 'src/local_storage_store.dart';
-part 'src/websql_store.dart';
 
 /**
  * Represents a Store that can hold key/value pairs. No order
@@ -69,13 +67,6 @@ abstract class Store {
     Store store;
     if (IndexedDbStore.supported) {
       store = new IndexedDbStore._(dbName, storeName);
-    } else if (WebSqlStore.supported) {
-      if (options != null && options['estimatedSize']) {
-        store = new WebSqlStore._(dbName, storeName,
-            estimatedSize: options['estimatedSize']);
-      } else {
-        store = new WebSqlStore._(dbName, storeName);
-      }
     } else {
       store = new LocalStorageStore._();
     }
