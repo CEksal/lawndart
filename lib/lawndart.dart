@@ -117,4 +117,6 @@ abstract class Store {
   /// Returns a Future that completes when all values and keys
   /// are removed.
   Future nuke();
+
+  void close() {}
 }

@@ -35,6 +35,8 @@ class IndexedDbStore extends Store {
   /// Returns true if IndexedDB is supported on this platform.
   static bool get supported => idb.IdbFactory.supported;
 
+  close() => _db?.close();
+
   Future _open() async {
     if (!supported) {
       throw new UnsupportedError('IndexedDB is not supported on this platform');
