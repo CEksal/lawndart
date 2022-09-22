@@ -70,15 +70,15 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future<String> save(String obj, String key) {
-    return _runInTxn<String>(
-        (store) async => (await store.put(obj, key)) as String);
+  Future<String> save(dynamic obj, String key) async {
+    final result = await _runInTxn((store) => store.put(obj, key));
+    return result;
   }
 
   @override
-  Future<String?> getByKey(String key) {
-    return _runInTxn<String?>(
-        (store) async => (await store.getObject(key) as String?), 'readonly');
+  Future<Object?> getByKey(String key) {
+    return _runInTxn(
+        (store) async => (await store.getObject(key)), 'readonly');
   }
 
   @override
@@ -109,7 +109,7 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future<void> batch(Map<String, String> objs) {
+  Future<void> batch(Map<String, Object> objs) {
     return _runInTxn((store) async {
       objs.forEach((k, v) {
         store.put(v, k);
@@ -118,7 +118,7 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Stream<String> getByKeys(Iterable<String> keys) async* {
+  Stream<Object> getByKeys(Iterable<String> keys) async* {
     for (var key in keys) {
       var v = await getByKey(key);
       if (v != null) yield v;

@@ -85,28 +85,28 @@ abstract class Store {
   /// Stores an [obj] accessible by [key].
   /// The returned Future completes with the key when the objects
   /// is saved in the store.
-  Future<String> save(String obj, String key);
+  Future<String> save(dynamic obj, String key);
 
   /// Stores all objects by their keys. This should happen in a single
   /// transaction if the underlying store supports it.
   /// The returned Future completes when all objects have been added
   /// to the store.
-  Future batch(Map<String, String> objectsByKey);
+  Future batch(Map<String, Object> objectsByKey);
 
   /// Returns a Future that completes with the value for a key,
   /// or null if the key does not exist.
-  Future<String?> getByKey(String key);
+  Future<Object?> getByKey(String key);
 
   /// Returns a Stream of all values for the keys.
   /// If a particular key is not found,
   /// no value will be returned, not even null.
-  Stream<String> getByKeys(Iterable<String> keys);
+  Stream<Object> getByKeys(Iterable<String> keys);
 
   /// Returns a Future that completes with true if the key exists, or false.
   Future<bool> exists(String key);
 
   /// Returns a Stream of all values in no particular order.
-  Stream<String> all();
+  Stream<Object> all();
 
   /// Returns a Future that completes when the key's value is removed.
   Future removeByKey(String key);
