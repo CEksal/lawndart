@@ -24,5 +24,5 @@ class MemoryStore extends _MapStore {
   }
 
   @override
-  Map<String, String> _generateMap() => new Map<String, String>();
+  Map<String, String> _generateMap() => Map<String, String>();
 }

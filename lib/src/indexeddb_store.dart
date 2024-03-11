@@ -14,12 +14,65 @@
 
 part of lawndart;
 
+abstract final class _IDBEventStreamProviders {
+  static const EventStreamProvider<Event> successEvent = EventStreamProvider('success');
+  static const EventStreamProvider<Event> errorEvent = EventStreamProvider('error');
+  static const EventStreamProvider<IDBVersionChangeEvent> blockedEvent = EventStreamProvider('blocked');
+  static const EventStreamProvider<IDBVersionChangeEvent> upgradeNeededEvent = EventStreamProvider('upgradeneeded');
+  static const EventStreamProvider<Event> completeEvent = EventStreamProvider('complete');
+  static const EventStreamProvider<Event> abortEvent = EventStreamProvider('abort');
+}
+
+extension IDBRequestEventGetters on IDBRequest? {
+  Stream<Event> get onSuccess => _IDBEventStreamProviders.successEvent.forTarget(this);
+  Stream<Event> get onError => _IDBEventStreamProviders.errorEvent.forTarget(this);
+  Stream<IDBVersionChangeEvent> get onBlocked => _IDBEventStreamProviders.blockedEvent.forTarget(this);
+  Stream<IDBVersionChangeEvent> get onUpgradeNeeded => _IDBEventStreamProviders.upgradeNeededEvent.forTarget(this);
+  Stream<Event> get onAbort => _IDBEventStreamProviders.abortEvent.forTarget(this);
+
+  Future<T> toDartFuture<T>() {
+    if (this == null) {
+      return Future.value(null);
+    }
+
+    final completer = Completer<T>.sync();
+
+    onSuccess.first.then((evt) => completer.complete(this!.result as T));
+    onError.first.then((evt) => completer.completeError(this!.error!));
+
+    return completer.future;
+  }
+}
+
+class AbortedException implements Exception {
+  AbortedException();
+
+  @override
+  String toString() => "AbortedException: Transaction aborted";
+}
+
+extension IDBTransactionEventGetters on IDBTransaction {
+  Stream<Event> get onComplete => _IDBEventStreamProviders.completeEvent.forTarget(this);
+  Stream<Event> get onAbort => _IDBEventStreamProviders.abortEvent.forTarget(this);
+  Stream<Event> get onError => _IDBEventStreamProviders.errorEvent.forTarget(this);
+
+  Future<void> get completed {
+    final completer = Completer<void>.sync();
+
+    onComplete.first.then((_) => completer.complete());
+    onError.first.then((_) => completer.completeError(error!));
+    onAbort.first.then((_) => completer.completeError(AbortedException()));
+
+    return completer.future;
+  }
+}
+
 /**
  * Wraps the IndexedDB API and exposes it as a [Store].
  * IndexedDB is generally the preferred API if it is available.
  */
 class IndexedDbStore extends Store {
-  static Map<String, idb.Database> _databases = new Map<String, idb.Database>();
+  static Map<String, IDBDatabase> _databases = new Map<String, IDBDatabase>();
 
   final String dbName;
   final String storeName;
@@ -33,9 +86,10 @@ class IndexedDbStore extends Store {
   }
 
   /// Returns true if IndexedDB is supported on this platform.
-  static bool get supported => idb.IdbFactory.supported;
+  static bool get supported => window.has('indexedDB');
 
-  close() => _db?.close();
+  @override
+  void close() => _db?.close();
 
   Future _open() async {
     if (!supported) {
@@ -44,78 +98,79 @@ class IndexedDbStore extends Store {
 
     _db?.close();
 
-    var db = await window.indexedDB!.open(dbName);
-
-    //print("Newly opened db $dbName has version ${db.version} and stores ${db.objectStoreNames}");
-    if (!db.objectStoreNames!.contains(storeName)) {
+    var db = (await window.indexedDB.open(dbName).toDartFuture<IDBDatabase?>())!;
+    if (!db.objectStoreNames.contains(storeName)) {
       db.close();
-      //print('Attempting upgrading $storeName from ${db.version}');
-      db = await window.indexedDB!.open(dbName, version: db.version! + 1,
-          onUpgradeNeeded: (e) {
-        //print('Upgrading db $dbName to ${db.version + 1}');
-        idb.Database d = e.target.result;
-        d.createObjectStore(storeName);
-      });
+      db = (await (window.indexedDB.open(dbName, db.version + 1)
+            ..onUpgradeNeeded.first.then((e) {
+              final d = (e.target! as IDBOpenDBRequest).result! as IDBDatabase;
+              d.createObjectStore(storeName);
+            }))
+          .toDartFuture<IDBDatabase?>())!;
     }
 
     _databases[dbName] = db;
     return true;
   }
 
-  idb.Database? get _db => _databases[dbName];
+  IDBDatabase? get _db => _databases[dbName];
 
   @override
-  Future removeByKey(String key) {
-    return _runInTxn((store) => store.delete(key));
-  }
+  Future<void> removeByKey(String key) =>
+    _runInTxn((store) => store.delete(key.toJS).toDartFuture<void>());
 
   @override
-  Future<String> save(String obj, String key) {
-    return _runInTxn<String>(
-        (store) async => (await store.put(obj, key)) as String);
-  }
+  Future<String> save(String obj, String key) =>
+    _runInTxn((store) =>
+      store.put(obj.toJS, key.toJS).toDartFuture<JSString>()
+        .then((str) => str.toDart));
 
   @override
-  Future<String?> getByKey(String key) {
-    return _runInTxn<String?>(
-        (store) async => (await store.getObject(key) as String?), 'readonly');
-  }
+  Future<String?> getByKey(String key) =>
+    _runInTxn((store) =>
+      store.get(key.toJS).toDartFuture<JSString?>()
+        .then((str) => str?.toDart),
+      'readonly');
 
   @override
-  Future nuke() {
-    return _runInTxn((store) => store.clear());
-  }
+  Future<void> nuke() =>
+    _runInTxn((store) => store.clear().toDartFuture<void>());
 
-  Future<T> _runInTxn<T>(Future<T> requestCommand(idb.ObjectStore store),
-      [String txnMode = 'readwrite']) async {
-    var trans = _db!.transaction(storeName, txnMode);
+  Future<T> _runInTxn<T>(Future<T> requestCommand(IDBObjectStore store), [String txnMode = 'readwrite']) async {
+    var trans = _db!.transaction(storeName.toJS, txnMode);
     var store = trans.objectStore(storeName);
-    var result = await requestCommand(store);
+    var result = requestCommand(store);
     await trans.completed;
     return result;
   }
 
-  Stream<String> _doGetAll(String onCursor(idb.CursorWithValue cursor)) async* {
-    var trans = _db!.transaction(storeName, 'readonly');
+  Stream<String> _doGetAll(String onCursor(IDBCursorWithValue cursor)) {
+    var trans = _db!.transaction(storeName.toJS, 'readonly');
     var store = trans.objectStore(storeName);
-    await for (var cursor in store.openCursor(autoAdvance: true)) {
-      yield onCursor(cursor);
-    }
-  }
+    final req = store.openCursor(null, 'next');
 
-  @override
-  Stream<String> all() {
-    return _doGetAll((idb.CursorWithValue cursor) => cursor.value);
-  }
-
-  @override
-  Future<void> batch(Map<String, String> objs) {
-    return _runInTxn((store) async {
-      objs.forEach((k, v) {
-        store.put(v, k);
+    return req.onSuccess
+      .map((evt) => (evt.target as IDBRequest?)?.result as IDBCursorWithValue?)
+      .takeWhile((cursor) => cursor != null)
+      .cast<IDBCursorWithValue>()
+      .map((cursor) {
+        final result = onCursor(cursor);
+        cursor.continue_();
+        return result;
       });
-    });
   }
+
+  @override
+  Stream<String> all() =>
+    _doGetAll((cursor) => (cursor.value! as JSString).toDart);
+
+  @override
+  Future<void> batch(Map<String, String> objs) =>
+    _runInTxn((store) =>
+      Future.wait(
+        objs.entries.map((entry) =>
+          store.put(entry.value.toJS, entry.key.toJS).toDartFuture()
+    )));
 
   @override
   Stream<String> getByKeys(Iterable<String> keys) async* {
@@ -126,22 +181,17 @@ class IndexedDbStore extends Store {
   }
 
   @override
-  Future<void> removeByKeys(Iterable<String> keys) {
-    return _runInTxn((store) async {
-      for (var key in keys) {
-        store.delete(key);
-      }
-    });
-  }
+  Future<void> removeByKeys(Iterable<String> keys) async =>
+    await _runInTxn((store) =>
+      Future.wait(keys.map((key) =>
+        store.delete(key.toJS).toDartFuture()
+    )));
 
   @override
-  Future<bool> exists(String key) async {
-    var value = await getByKey(key);
-    return value != null;
-  }
+  Future<bool> exists(String key) async =>
+    (await getByKey(key)) != null;
 
   @override
-  Stream<String> keys() {
-    return _doGetAll((idb.CursorWithValue cursor) => cursor.key as String);
-  }
+  Stream<String> keys() =>
+    _doGetAll((cursor) => (cursor.key! as JSString).toDart);
 }
