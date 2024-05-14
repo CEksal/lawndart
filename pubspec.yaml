@@ -5,7 +5,7 @@ homepage: https://github.com/sethladd/lawndart
 documentation: http://sethladd.github.com/lawndart/
 
 environment:
-  sdk: '>=3.3.1'
+  sdk: '>=3.4.0'
 
 dependencies:
   web: ^0.5.1
