@@ -8,5 +8,5 @@ void main() async {
   print('opened 2');
   await store.all().toList();
   print('all done');
-  querySelector('#text')?.text = 'all done';
+  document.querySelector('#text')?.text = 'all done';
 }
