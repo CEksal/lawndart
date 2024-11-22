@@ -19,8 +19,24 @@ part of lawndart;
  * Local storage is a synchronous API, and generally not recommended
  * unless all other storage mechanisms are unavailable.
  */
-class LocalStorageStore extends _MapStore {
+class LocalStorageStore extends Store {
   LocalStorageStore._() : super._();
+
+  static List<String> _allKeys() {
+    final result = <String>[];
+    for (var i = 0; i < window.localStorage.length; i++) {
+      result.add(window.localStorage.key(i)!);
+    }
+    return result;
+  }
+
+  static List<String> _allValues() {
+    final result = <String>[];
+    for (var i = 0; i < window.localStorage.length; i++) {
+      result.add(window.localStorage.getItem(window.localStorage.key(i)!)!);
+    }
+    return result;
+  }
 
   static Future<LocalStorageStore> open() async {
     var store = new LocalStorageStore._();
@@ -29,5 +45,45 @@ class LocalStorageStore extends _MapStore {
   }
 
   @override
-  Map<String, String> _generateMap() => window.localStorage;
+  Future<void> _open() async {}
+
+  @override
+  Stream<String> keys() => Stream.fromIterable(LocalStorageStore._allKeys());
+
+  @override
+  Stream<String> all() => Stream.fromIterable(LocalStorageStore._allValues());
+
+  @override
+  Future<bool> exists(String key) async => window.localStorage.getItem(key) != null;
+
+  @override
+  Future<String?> getByKey(String key) async => window.localStorage.getItem(key);
+
+  @override
+  Future<void> removeByKey(String key) async => window.localStorage.removeItem(key);
+
+  @override
+  Stream<String> getByKeys(Iterable<String> keys) =>
+    Stream.fromIterable(
+      keys
+        .map((key) => window.localStorage.getItem(key))
+        .whereType()
+    );
+
+  @override
+  Future<void> removeByKeys(Iterable<String> keys) async =>
+    keys.forEach((key) => window.localStorage.removeItem(key));
+
+  @override
+  Future<void> batch(Map<String, String> objectsByKey) async =>
+    objectsByKey.forEach((key, value) => window.localStorage.setItem(key, value));
+
+  @override
+  Future<String> save(String obj, String key) async {
+    window.localStorage.setItem(key, obj);
+    return key;
+  }
+
+  @override
+  Future<void> nuke() async => window.localStorage.clear();
 }

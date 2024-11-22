@@ -42,8 +42,10 @@ See the `example/` directory for more sample code.
 */
 library lawndart;
 
-import 'dart:html';
-import 'dart:indexed_db' as idb;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
+import 'package:web/web.dart';
 import 'dart:async';
 
 part 'src/indexeddb_store.dart';
@@ -77,7 +79,7 @@ abstract class Store {
   }
 
   /// Opens and initializes the database.
-  Future _open();
+  Future<void> _open();
 
   /// Returns all the keys as a stream. No order is guaranteed.
   Stream<String> keys();
@@ -91,7 +93,7 @@ abstract class Store {
   /// transaction if the underlying store supports it.
   /// The returned Future completes when all objects have been added
   /// to the store.
-  Future batch(Map<String, String> objectsByKey);
+  Future<void> batch(Map<String, String> objectsByKey);
 
   /// Returns a Future that completes with the value for a key,
   /// or null if the key does not exist.
@@ -109,14 +111,14 @@ abstract class Store {
   Stream<String> all();
 
   /// Returns a Future that completes when the key's value is removed.
-  Future removeByKey(String key);
+  Future<void> removeByKey(String key);
 
   /// Returns a Future that completes when all the keys' values are removed.
-  Future removeByKeys(Iterable<String> keys);
+  Future<void> removeByKeys(Iterable<String> keys);
 
   /// Returns a Future that completes when all values and keys
   /// are removed.
-  Future nuke();
+  Future<void> nuke();
 
   void close() {}
 }
