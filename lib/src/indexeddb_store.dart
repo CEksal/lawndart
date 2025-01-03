@@ -12,7 +12,7 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-part of lawndart;
+part of '../lawndart.dart';
 
 abstract final class _IDBEventStreamProviders {
   static const EventStreamProvider<Event> successEvent = EventStreamProvider('success');
