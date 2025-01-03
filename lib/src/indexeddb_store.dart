@@ -60,8 +60,22 @@ extension IDBTransactionEventGetters on IDBTransaction {
     final completer = Completer<void>.sync();
 
     onComplete.first.then((_) => completer.complete());
-    onError.first.then((_) => completer.completeError(error!));
-    onAbort.first.then((_) => completer.completeError(AbortedException()));
+
+    onError.first.then((_) {
+      if (completer.isCompleted) return;
+
+      if (error != null) {
+        completer.completeError(error!);
+      } else {
+        completer.completeError(Exception('unknown IndexedDB transaction error'));
+      }
+    });
+
+    onAbort.first.then((_) {
+      if (completer.isCompleted) return;
+
+      completer.completeError(AbortedException());
+    });
 
     return completer.future;
   }
@@ -138,9 +152,11 @@ class IndexedDbStore extends Store {
 
   Future<T> _runInTxn<T>(Future<T> requestCommand(IDBObjectStore store), [String txnMode = 'readwrite']) async {
     var trans = _db!.transaction(storeName.toJS, txnMode);
+    final completed = trans.completed;
+
     var store = trans.objectStore(storeName);
     var result = requestCommand(store);
-    await trans.completed;
+    await completed;
     return result;
   }
 
